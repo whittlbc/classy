@@ -58,3 +58,4 @@ docs/_build/
 .idea/
 model.h5
 model.json
+*.pkl

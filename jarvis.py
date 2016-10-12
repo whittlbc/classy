@@ -5,9 +5,11 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.linear_model import SGDClassifier
 from dataset import Dataset
 from nltk.tokenize import word_tokenize
+from sklearn.model_selection import GridSearchCV
+from sklearn.externals import joblib
+import pickle
 
-
-def pipeline():
+def classifier():
 	# Figure out how to shuffle the data like in the fetch_20newsgroups
 	# random_state involved too? --> default is 42, like in the tutorial.
 	return Pipeline([
@@ -19,14 +21,21 @@ def pipeline():
 
 def trained_model():
 	train_set = Dataset(csv='jarvis/train.csv')
-	trained_pipeline = pipeline().fit(train_set.data, train_set.targets)
-	return [train_set, trained_pipeline]
+	
+	params = {
+		'vect__ngram_range': [(1, 1), (1, 2)],
+		'tfidf__use_idf': (True, False),
+		'clf__alpha': (1e-2, 1e-3)
+	}
+	
+	grid_search_clf = GridSearchCV(classifier(), params, n_jobs=-1)
+	model_trained = grid_search_clf.fit(train_set.data, train_set.targets)
+	return [train_set, model_trained]
 
 
 def clean_input(input):
 	input = re.sub('[^ \w]+', '', input)
-	stem_and_lower = lambda x: Dataset.stemmer.stem(x.lower())
-	stemmed_words = map(stem_and_lower, word_tokenize(input))
+	stemmed_words = map(lambda x: Dataset.stemmer.stem(x.lower()), word_tokenize(input))
 	return ' '.join(stemmed_words)
 
 
@@ -40,10 +49,14 @@ def predict_action_from_input(train_set, model, input):
 train_set, model = trained_model()
 
 # Predict an action for Jarvis to perform based on user text input:
-action = predict_action_from_input(train_set, model, "What's the weather look like?")
+action = predict_action_from_input(train_set, model, "What about the weather though?")
 
 # What's our predicted action?
 print "Action: {}".format(action)
 
+joblib.dump(model.best_estimator_, 'jarvis.pkl')
 
-# code.interact(local=dict(globals(), **locals()))
+# .. later ...
+saved_model = joblib.load('jarvis.pkl', 'r')
+second_action = predict_action_from_input(train_set, saved_model, "Who am I again?")
+print "Action: {}".format(second_action)
